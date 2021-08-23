@@ -1,0 +1,19 @@
+{
+  "name": "jest-testrail",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node railtest.js",
+    "test": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jasmine": "^3.7.0",
+    "jest-2-testrail": "^1.0.9",
+    "socks5-http-client": "^1.0.4",
+    "testrail-api": "^1.3.6"
+  }
+}
