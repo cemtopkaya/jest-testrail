@@ -75,6 +75,16 @@ async function getProject(projectName) {
     return projects.find(p => p.name == projectName);
 }
 
+async function createRun(projectName, runName, caseIds) {
+    var runData = {
+        name: runName,
+        description: ''
+    }
+    const project = await getProject(projectName);
+    let run = (await tr.addRun(project.id, runData)).body
+    return run;
+}
+
 async function syncSuitesWithSections(projectName) {
 
     try {
@@ -85,8 +95,6 @@ async function syncSuitesWithSections(projectName) {
         let sections = (await tr.getSections(project.id)).body
         console.log(">>>>>>>>>>>>> sections:", sections);
 
-        // .filter(suite => suite.parent == null)
-        // const a = suites.map(async (suite, idx, arr) => {
         for (const suite of suites) {
             let section;
 
@@ -123,16 +131,6 @@ async function syncSuitesWithSections(projectName) {
                 suite._section = section
             }
         }
-        // })
-
-
-        // for (const suite of suites.filter(suite => suite.parent)) {
-        //     const found = sections.filter(section => section.name == suite.description)
-        //     if (found.length == 0) {
-        //         tr.addSection(project.id, { name: suite.description, })
-        //     }
-        //     console.log()
-        // }
 
         return suites;
     } catch (error) {
@@ -141,24 +139,33 @@ async function syncSuitesWithSections(projectName) {
 }
 
 async function syncSpecsWithCases(projectName, suites) {
+    /**
+     * SPEC eğer testrail üsütünde varsa testrail'de kayıtlı CASE bilgisi
+     * suite.specs[0].case_ = CASE olarak eklenir
+     * Eğer testrail'de yoksa, SPEC->CASE olarak testrail'e eklenir ve oluşan CASE bilgsi
+     * suite.specs[0].case_ = addedCASE olarak eklenir
+     * 
+     * Tüm CASE bilgileri case type_id=7 (OTHER) olarak eklenir
+     */
     const project = await getProject(projectName);
     const cases = (await tr.getCases(project.id)).body;
-    
+
     for (const suite of suites) {
         for (const spec of suite.specs) {
             const isExistOnTestrail = c => c.title === spec.description && c.section_id === suite._section.id
             const foundCase = cases.find(isExistOnTestrail)
             if (foundCase) {
+                spec.case_ = foundCase;
                 continue;
             }
 
             let caseData = {
                 title: spec.description,
-                type_id: 7
+                type_id: 7 // other (https://guitest.testrail.io/index.php?/api/v2/get_case_types)
             }
-            console.log(">>>>> spec: ", spec);
-            const addedCase = (await tr.addCase(suite._section.id, caseData)).body
-            console.log(">>> addedCase: ", addedCase);
+
+            const addedCase = (await tr.addCase(suite._section.id, caseData)).body;
+            spec.case_ = addedCase;
         }
     }
 }
@@ -299,9 +306,11 @@ class WithoutStep {
         // const suites = getFlattenSuitesWithSpecs()
         const projectName = 'Ornek';
 
-        
+
         const suites = await syncSuitesWithSections(projectName)
         const specs = await syncSpecsWithCases(projectName, suites)
+        const run = await createRun(projectName, 'Elle tetiklenen test')
+        const addCaseResults = await addCaseResults(run, specs)
         console.log(`>>> data.queue.suites: `, suites)
 
 
