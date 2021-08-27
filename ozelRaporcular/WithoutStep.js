@@ -1,3 +1,5 @@
+var md5 = require('md5');
+
 Array.prototype.last = function () {
     return this[this.length - 1];
 }
@@ -40,7 +42,7 @@ const veri = {
 var Testrail = require('testrail-api');
 
 var tr = new Testrail({
-    host: 'https://jestrail.testrail.io',
+    host: 'https://guitest.testrail.io',
     user: 'cem.topkaya@ulakhaberlesme.com.tr',
     password: 'q1w2e3r4'
 });
@@ -68,14 +70,18 @@ function flatten(arr, d = 1) {
     return d > 0 ? res : arr.slice();
 }
 
-async function syncSuitesWithSections() {
+async function getProject(projectName) {
+    const projects = (await tr.getProjects()).body;
+    return projects.find(p => p.name == projectName);
+}
+
+async function syncSuitesWithSections(projectName) {
 
     try {
         const suites = getFlattenSuitesWithSpecs()
         console.log(">>>>>>>>>>>>> suites:", suites);
+        const project = await getProject(projectName);
 
-        const projects = (await tr.getProjects()).body
-        const project = projects.find(p => p.name == 'Ornek')
         let sections = (await tr.getSections(project.id)).body
         console.log(">>>>>>>>>>>>> sections:", sections);
 
@@ -134,47 +140,74 @@ async function syncSuitesWithSections() {
     }
 }
 
-async function syncSpecsWithCases(suites) {
-    for (const suite in suites) {
-        for (const spec in suite.specs) {
-            console.log(">>>>> spec: ",spec);
+async function syncSpecsWithCases(projectName, suites) {
+    const project = await getProject(projectName);
+    const cases = (await tr.getCases(project.id)).body;
+    
+    for (const suite of suites) {
+        for (const spec of suite.specs) {
+            const isExistOnTestrail = c => c.title === spec.description && c.section_id === suite._section.id
+            const foundCase = cases.find(isExistOnTestrail)
+            if (foundCase) {
+                continue;
+            }
+
+            let caseData = {
+                title: spec.description,
+                type_id: 7
+            }
+            console.log(">>>>> spec: ", spec);
+            const addedCase = (await tr.addCase(suite._section.id, caseData)).body
+            console.log(">>> addedCase: ", addedCase);
         }
     }
 }
 
 async function kaydet() {
+    //     /**
+    //  * suites -> sections
+    //  * specs -> cases
+    //  */
 
-    const suites = getFlattenSuites()
-    console.log(">>>>>>>>>>>>> suites:", suites);
+    //     const suites = getFlattenSuites()
+    //     console.log(">>>>>>>>>>>>> suites:", suites);
 
-    const projects = (await tr.getProjects()).body
-    const project = projects.find(p => p.name == 'Ornek')
-    let sections = (await tr.getSections(project.id)).body
-    console.log(">>>>>>>>>>>>> sections:", sections);
+    //     const projects = (await tr.getProjects()).body
+    //     const project = projects.find(p => p.name == 'Ornek')
+    //     let sections = (await tr.getSections(project.id)).body
+    //     console.log(">>>>>>>>>>>>> sections:", sections);
 
-    suites
-        .filter(suite => suite.parent == null)
-        .map(async suite => {
-            const found = sections.find(section => section.parent_id == null && section.name == suite.description)
-            if (found == null) {
-                const addedSection = await (await tr.addSection(project.id, { name: suite.description })).body
-                console.log(">>> addedSection: ", addedSection);
-            }
-            else {
-                suite._section = found
-                console.log(">>>> found: ", suite);
-            }
-        })
+    //     // parent=null Section'lar testrail üstünde yoksa yaratılır. 
+    //     suites
+    //         .filter(suite => suite.parent == null)
+    //         .map(async suite => {
+    //             const foundSection = sections.find(section => section.parent_id == null && section.name == suite.description)
 
-    sections = (await tr.getSections(project.id)).body
+    //             if (foundSection == null) {
+    //                 const addedSection = await (await tr.addSection(project.id, { name: suite.description })).body
+    //                 suite._section = addedSection
+    //                 console.log(">>> addedSection: ", addedSection);
+    //             }
+    //             else {
+    //                 suite._section = foundSection
+    //                 console.log(">>>> found Section: ", suite);
+    //             }
+    //         });
 
-    for (const suite of suites.filter(suite => suite.parent)) {
-        const found = sections.filter(section => section.name == suite.description)
-        if (found.length == 0) {
-            tr.addSection(project.id, { name: suite.description, })
-        }
-        console.log()
-    }
+
+    //     // testrail üstündeki sectionların son hali çekilir
+    //     sections = (await tr.getSections(project.id)).body
+
+    //     // parent'ı olan suite'ler eklenir
+    //     for (const suite of suites.filter(suite => suite.parent)) {
+    //         const found = sections.filter(section => section.name == suite.description)
+    //         if (found.length == 0) {
+    //             const addedSection = await tr.addSection(project.id, { name: suite.description, });
+    //             suite._section = addedSection;
+    //             console.log(">>> addedSection: ", addedSection);
+    //         }
+    //     }
+
 }
 
 const addSuiteToRoot = function (suiteInfo) {
@@ -264,13 +297,17 @@ class WithoutStep {
 
         // const suites = getFlattenSuites()
         // const suites = getFlattenSuitesWithSpecs()
-        const suites = await syncSuitesWithSections()
-        const specs = await syncSpecsWithCases(suites)
+        const projectName = 'Ornek';
+
+        
+        const suites = await syncSuitesWithSections(projectName)
+        const specs = await syncSpecsWithCases(projectName, suites)
         console.log(`>>> data.queue.suites: `, suites)
 
 
         kaydet()
             .then(async (gelen) => {
+                console.log(">>> --- ", await Promise.all(gelen));
                 console.log(">>> --- ", await Promise.all(gelen));
                 done()
             })

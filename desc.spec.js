@@ -40,20 +40,23 @@ describe('SUITE 1', function () {
         describe('SUITE 4', function () {
             it('it 4', () => { });
         });
-
+        
         describe('SUITE 5', function () {
             it('it 5', () => { });
         });
-
+        
         describe('SUITE 6', function () {
             it('it 6', () => { });
-
+            
             describe('SUITE 7', function () {
                 it('it 7_1', () => { });
                 it('it 7_2', () => { });
             });
         });
-
+        describe('SUITE 8', function () {
+            it('it 8_1', () => { });
+        });
+        
     });
 
     describe('SUITE 3', function () {
