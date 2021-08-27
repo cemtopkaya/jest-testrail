@@ -85,6 +85,16 @@ async function createRun(projectName, runName, caseIds) {
     return run;
 }
 
+async function addCaseResults(run, specs) {
+    let resultData = {
+        "results": [
+            
+        ]
+    };
+
+    const res = (await tr.addResultsForCases(run.id, resultData)).body
+}
+
 async function syncSuitesWithSections(projectName) {
 
     try {
